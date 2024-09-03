@@ -61,7 +61,7 @@ $KEYTOOL \
   -genkeypair \
   -keystore build/keystore.jks \
   -alias androidkey \
-  -dname "CN=nue.im, OU=ID, O=HEREKET, L=Abc, S=Xyz, C=GB" \
+  -dname "CN=UN, OU=UN, O=UN, L=UN, S=UN, C=UN" \
   -validity 10000 \
   -keyalg RSA \
   -keysize 2048 \
