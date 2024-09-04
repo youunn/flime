@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# rm -rf build
+rm -rf build
 
 BUILD_TOOLS=$ANDROID_HOME/build-tools/34.0.0
 PLATFORM=$ANDROID_HOME/platforms/android-34
@@ -32,19 +32,17 @@ $AAPT2 link \
   # --proguard build/proguard-rules.pro \
   # --output-text-symbols build/symbols
 
-find build/java -name "*.java" | xargs -I {} \
 $JAVAC \
   -cp $ANDROID_JAR \
   -d build/classes \
   assets/MainActivity.java \
-  {}
+  $(find build/java -name "*.java")
 
-find build/classes -name "*.class" | xargs -I {} \
 $D8 \
-  {} \
   --no-desugaring \
   --output build \
-  --release
+  --release \
+  $(find build/classes -name "*.class")
 
 pushd build
 $AAPT add app.unaligned.apk classes.dex

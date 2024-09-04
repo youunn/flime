@@ -1,9 +1,15 @@
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
-    package="im.nue.flime">
+    package="im.nue.flime"
+    android:versionCode="1"
+    android:versionName="0.0.1">
+
+    <uses-sdk
+        android:minSdkVersion="34"
+        android:targetSdkVersion="34"
+        />
     <application
         android:label="flime"
-        android:name="im.nue.flime"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
@@ -14,10 +20,6 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <meta-data
-              android:name="io.flutter.embedding.android.NormalTheme"
-              android:resource="@style/NormalTheme"
-              />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

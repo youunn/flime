@@ -3,6 +3,7 @@
 ## Install
 
 ``` bash
-adb install --bypass-low-target-sdk-block build/app.apk
+adb push build/app.apk /data/local/tmp/flime.apk
+adb shell pm install --user 0 /data/local/tmp/flime.apk
 ```
 
