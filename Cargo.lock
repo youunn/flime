@@ -542,6 +542,7 @@ name = "flvis"
 version = "0.0.1"
 dependencies = [
  "log",
+ "pollster",
  "wgpu",
  "winit",
 ]

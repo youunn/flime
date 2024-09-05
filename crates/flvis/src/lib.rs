@@ -1,146 +1,224 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 use winit::{
-    event::{Event, WindowEvent},
-    event_loop::EventLoop,
-    window::Window,
+    application::ApplicationHandler,
+    error::EventLoopError,
+    event::WindowEvent,
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowAttributes},
 };
 
-pub async fn run(event_loop: EventLoop<()>, window: Window) {
-    let mut size = window.inner_size();
-    size.width = size.width.max(1);
-    size.height = size.height.max(1);
+#[derive(Default)]
+struct RenderApp<'s> {
+    context: RenderContext,
+    state: RenderState<'s>,
+    window_attributes: WindowAttributes,
+}
 
-    let instance = wgpu::Instance::default();
+impl RenderApp<'_> {
+    fn new(window_attributes: WindowAttributes) -> Self {
+        Self {
+            window_attributes,
+            ..Default::default()
+        }
+    }
+}
 
-    let surface = instance.create_surface(&window).unwrap();
-    let adapter = instance
-        .request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::default(),
-            force_fallback_adapter: false,
-            // Request an adapter which can render to our surface
-            compatible_surface: Some(&surface),
-        })
-        .await
+#[derive(Default)]
+struct RenderContext {
+    instance: wgpu::Instance,
+    device: Option<DeviceHandle>,
+}
+
+struct DeviceHandle {
+    adapter: wgpu::Adapter,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    render_pipeline: wgpu::RenderPipeline,
+}
+
+enum RenderState<'s> {
+    Active(ActiveRenderState<'s>),
+    Suspended(Option<Arc<Window>>),
+}
+
+impl Default for RenderState<'_> {
+    fn default() -> Self {
+        Self::Suspended(None)
+    }
+}
+
+struct ActiveRenderState<'s> {
+    surface: wgpu::Surface<'s>,
+    window: Arc<Window>,
+}
+
+impl ApplicationHandler for RenderApp<'_> {
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        let RenderState::Suspended(window) = &mut self.state else {
+            return;
+        };
+
+        // TODO: cfg for different platform
+        let window = window.take().unwrap_or_else(|| {
+            Arc::new(
+                event_loop
+                    .create_window(self.window_attributes.clone())
+                    .expect("Failed to create window"),
+            )
+        });
+
+        let surface = self
+            .context
+            .instance
+            .create_surface(window.clone())
+            .unwrap();
+
+        let adapter = pollster::block_on(self.context.instance.request_adapter(
+            &wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
+                force_fallback_adapter: false,
+                compatible_surface: Some(&surface),
+            },
+        ))
         .expect("Failed to find an appropriate adapter");
 
-    // Create the logical device and command queue
-    let (device, queue) = adapter
-        .request_device(
+        let (device, queue) = pollster::block_on(adapter.request_device(
             &wgpu::DeviceDescriptor {
                 label: None,
                 required_features: wgpu::Features::empty(),
-                // Make sure we use the texture resolution limits from the adapter, so we can support images the size of the swapchain.
-                required_limits: wgpu::Limits::downlevel_webgl2_defaults()
-                    .using_resolution(adapter.limits()),
+                required_limits:
+                    wgpu::Limits::downlevel_webgl2_defaults().using_resolution(adapter.limits()),
                 memory_hints: wgpu::MemoryHints::MemoryUsage,
             },
             None,
-        )
-        .await
+        ))
         .expect("Failed to create device");
 
-    // Load the shaders from disk
-    let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-        label: None,
-        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
-    });
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
+        });
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[],
+            push_constant_ranges: &[],
+        });
+        let swapchain_capabilities = surface.get_capabilities(&adapter);
+        let swapchain_format = swapchain_capabilities.formats[0];
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: "vs_main",
+                buffers: &[],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: "fs_main",
+                compilation_options: Default::default(),
+                targets: &[Some(swapchain_format.into())],
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview: None,
+            cache: None,
+        });
 
-    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-        label: None,
-        bind_group_layouts: &[],
-        push_constant_ranges: &[],
-    });
+        self.context.device = Some(DeviceHandle {
+            adapter,
+            device,
+            queue,
+            render_pipeline,
+        });
+        self.state = RenderState::Active(ActiveRenderState { surface, window });
+        event_loop.set_control_flow(ControlFlow::Poll);
+    }
 
-    let swapchain_capabilities = surface.get_capabilities(&adapter);
-    let swapchain_format = swapchain_capabilities.formats[0];
+    fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if let RenderState::Active(state) = &self.state {
+            self.state = RenderState::Suspended(Some(state.window.clone()));
+        }
+        event_loop.set_control_flow(ControlFlow::Wait);
+    }
 
-    let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        label: None,
-        layout: Some(&pipeline_layout),
-        vertex: wgpu::VertexState {
-            module: &shader,
-            entry_point: "vs_main",
-            buffers: &[],
-            compilation_options: Default::default(),
-        },
-        fragment: Some(wgpu::FragmentState {
-            module: &shader,
-            entry_point: "fs_main",
-            compilation_options: Default::default(),
-            targets: &[Some(swapchain_format.into())],
-        }),
-        primitive: wgpu::PrimitiveState::default(),
-        depth_stencil: None,
-        multisample: wgpu::MultisampleState::default(),
-        multiview: None,
-        cache: None,
-    });
-
-    let mut config = surface
-        .get_default_config(&adapter, size.width, size.height)
-        .unwrap();
-    surface.configure(&device, &config);
-
-    let window = &window;
-    event_loop
-        .run(move |event, target| {
-            // Have the closure take ownership of the resources.
-            // `event_loop.run` never returns, therefore we must do this to ensure
-            // the resources are properly cleaned up.
-            let _ = (&instance, &adapter, &shader, &pipeline_layout);
-
-            if let Event::WindowEvent {
-                window_id: _,
-                event,
-            } = event
-            {
-                match event {
-                    WindowEvent::Resized(new_size) => {
-                        // Reconfigure the surface with the new size
-                        config.width = new_size.width.max(1);
-                        config.height = new_size.height.max(1);
-                        surface.configure(&device, &config);
-                        // On macos the window needs to be redrawn manually after resizing
-                        window.request_redraw();
-                    }
-                    WindowEvent::RedrawRequested => {
-                        let frame = surface
-                            .get_current_texture()
-                            .expect("Failed to acquire next swap chain texture");
-                        let view = frame
-                            .texture
-                            .create_view(&wgpu::TextureViewDescriptor::default());
-                        let mut encoder =
-                            device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                                label: None,
-                            });
-                        {
-                            let mut rpass =
-                                encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                                    label: None,
-                                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                                        view: &view,
-                                        resolve_target: None,
-                                        ops: wgpu::Operations {
-                                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                                            store: wgpu::StoreOp::Store,
-                                        },
-                                    })],
-                                    depth_stencil_attachment: None,
-                                    timestamp_writes: None,
-                                    occlusion_query_set: None,
-                                });
-                            rpass.set_pipeline(&render_pipeline);
-                            rpass.draw(0..3, 0..1);
-                        }
-
-                        queue.submit(Some(encoder.finish()));
-                        frame.present();
-                    }
-                    WindowEvent::CloseRequested => target.exit(),
-                    _ => {}
-                };
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        let render_state = match &mut self.state {
+            RenderState::Active(state) if state.window.id() == window_id => state,
+            _ => return,
+        };
+        match event {
+            WindowEvent::CloseRequested => {
+                event_loop.exit();
             }
-        })
-        .unwrap();
+            WindowEvent::Resized(size) => {
+                let Some(device_handler) = &self.context.device else {
+                    render_state.window.request_redraw();
+                    return;
+                };
+                let config = render_state
+                    .surface
+                    .get_default_config(&device_handler.adapter, size.width.max(1), size.height)
+                    .expect("Failed to get surface config");
+                render_state
+                    .surface
+                    .configure(&device_handler.device, &config);
+                render_state.window.request_redraw();
+            }
+            WindowEvent::RedrawRequested => {
+                let Some(device_handler) = &self.context.device else {
+                    return;
+                };
+                let frame = render_state
+                    .surface
+                    .get_current_texture()
+                    .expect("Failed to acquire next swap chain texture");
+                let view = frame
+                    .texture
+                    .create_view(&wgpu::TextureViewDescriptor::default());
+                let mut encoder = device_handler
+                    .device
+                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                    label: None,
+                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                        view: &view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                            store: wgpu::StoreOp::Store,
+                        },
+                    })],
+                    depth_stencil_attachment: None,
+                    timestamp_writes: None,
+                    occlusion_query_set: None,
+                });
+                rpass.set_pipeline(&device_handler.render_pipeline);
+                rpass.draw(0..3, 0..1);
+                drop(rpass);
+
+                device_handler.queue.submit(Some(encoder.finish()));
+                frame.present();
+                device_handler.device.poll(wgpu::Maintain::Poll);
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn run(
+    event_loop: EventLoop<()>,
+    window_attributes: WindowAttributes,
+) -> Result<(), EventLoopError> {
+    let mut app = RenderApp::new(window_attributes);
+    event_loop.run_app(&mut app)?;
+    Ok(())
 }

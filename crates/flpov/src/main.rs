@@ -4,12 +4,10 @@ type AnyResult = std::result::Result<(), Box<dyn std::error::Error>>;
 
 fn main() -> AnyResult {
     let event_loop = EventLoop::new().unwrap();
-    let window = event_loop.create_window(
-        Window::default_attributes()
-            .with_title("flpov")
-            .with_inner_size(LogicalSize::new(128, 128)),
-    )?;
+    let window_attributes = Window::default_attributes()
+        .with_title("flpov")
+        .with_inner_size(LogicalSize::new(800, 600));
     env_logger::init();
-    pollster::block_on(flvis::run(event_loop, window));
+    flvis::run(event_loop, window_attributes)?;
     Ok(())
 }
