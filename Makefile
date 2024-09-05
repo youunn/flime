@@ -25,7 +25,7 @@ R_JAVA := $(BUILD_DIR)/java/im/nue/flime/R.java
 .PHONY: default
 default: clean uninstall install run
 
-$(CACHE_DIR)/keystore.jks: $(CACHE_DIR)
+$(CACHE_DIR)/keystore.jks:
 	@mkdir -p $(CACHE_DIR)
 	$(KEYTOOL) \
 		-genkeypair \
