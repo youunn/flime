@@ -1,0 +1,20 @@
+cargo-features = [
+    "edition2024",
+]
+
+[package]
+name = "flapp"
+version = "0.0.1"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+flvis.workspace = true
+log.workspace = true
+pollster.workspace = true
+
+[target.'cfg(target_os = "android")'.dependencies]
+winit = { workspace = true, features = ["android-native-activity"] }
+android_logger.workspace = true

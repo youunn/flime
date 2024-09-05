@@ -1,5 +1,7 @@
 MAKEFLAGS += -rR
 
+ANDROID_TARGET := arm64-v8a
+
 BUILD_TOOLS := $(ANDROID_HOME)/build-tools/34.0.0
 PLATFORM := $(ANDROID_HOME)/platforms/android-34
 
@@ -20,8 +22,8 @@ RES := $(shell find app/res -type f)
 JAVA_SRC := app/MainActivity.java
 R_JAVA := $(BUILD_DIR)/java/im/nue/flime/R.java
 
-.PHONY: all
-all: $(BUILD_DIR)/app.apk
+.PHONY: default
+default: clean uninstall install run
 
 $(CACHE_DIR)/keystore.jks: $(CACHE_DIR)
 	@mkdir -p $(CACHE_DIR)
@@ -56,10 +58,13 @@ $(BUILD_DIR)/classes.dex: $(JAVA_SRC) $(R_JAVA)
 	$(D8) --no-desugaring --output $(BUILD_DIR) --release \
 		$$(find $(BUILD_DIR)/classes -name "*.class")
 
-$(BUILD_DIR)/app.unaligned.apk: $(BUILD_DIR)/app.base.apk $(BUILD_DIR)/classes.dex
+$(BUILD_DIR)/app.unaligned.apk: $(BUILD_DIR)/app.base.apk \
+	$(BUILD_DIR)/classes.dex \
+	$(BUILD_DIR)/lib/$(ANDROID_TARGET)/libflapp.so
 	cd build && \
 	cp app.base.apk app.unaligned.apk && \
-	$(AAPT) add app.unaligned.apk classes.dex
+	$(AAPT) add app.unaligned.apk classes.dex && \
+	$(AAPT) add app.unaligned.apk $$(find lib -type f)
 
 
 $(BUILD_DIR)/app.unsigned.apk: $(BUILD_DIR)/app.unaligned.apk
@@ -73,11 +78,32 @@ $(BUILD_DIR)/app.apk: $(BUILD_DIR)/app.unsigned.apk $(CACHE_DIR)/keystore.jks
 		--out $(BUILD_DIR)/app.apk \
 		$<
 
+$(BUILD_DIR)/lib/$(ANDROID_TARGET)/libflapp.so:
+	cargo ndk -t $(ANDROID_TARGET) -o $(BUILD_DIR)/lib \
+		build --package flapp --release \
+		2>&1 | cat
+
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
+
+.PHONY: uninstall
+uninstall:
+	adb uninstall im.nue.flime
 
 .PHONY: install
 install: $(BUILD_DIR)/app.apk
 	adb push $< /data/local/tmp/flime.apk
 	adb shell pm install --user 0 /data/local/tmp/flime.apk
+
+.PHONY: run
+run:
+	adb shell am start -n im.nue.flime/.MainActivity
+
+.PHONY: log
+log:
+	adb shell ps | grep im.nue.flime | awk '{print $$2}' | xargs -I {} sh -c "adb logcat | grep {}"
+
+.PHONY: preview
+preview:
+	cargo run

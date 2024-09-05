@@ -1,0 +1,14 @@
+cargo-features = [
+    "edition2024",
+]
+
+[package]
+name = "flpov"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+env_logger.workspace = true
+flvis.workspace = true
+pollster.workspace = true
+winit.workspace = true

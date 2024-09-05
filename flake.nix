@@ -58,20 +58,26 @@
         );
       in
       {
-        devShell = pkgs.mkShell rec {
+        devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
             rust
             android
             jdk17
             gnumake
+            cargo-ndk
 
             pkg-config
             openssl
           ];
           ANDROID_HOME = "${android}/share/android-sdk";
-          ANDROID_SDK_ROOT = ANDROID_HOME;
-          GRADLE_OPTS = "-Dorg.gradle.project.android.aapt2FromMavenOverride=${ANDROID_HOME}/build-tools/${buildToolsVersion}/aapt2";
           JAVA_HOME = pkgs.jdk17;
+          LD_LIBRARY_PATH =
+            with pkgs;
+            lib.makeLibraryPath [
+              wayland
+              libxkbcommon
+              vulkan-loader
+            ];
         };
       }
     );

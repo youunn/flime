@@ -1,0 +1,13 @@
+cargo-features = [
+    "edition2024",
+]
+
+[package]
+name = "flvis"
+version = "0.0.1"
+edition = "2024"
+
+[dependencies]
+log.workspace = true
+wgpu.workspace = true
+winit.workspace = true

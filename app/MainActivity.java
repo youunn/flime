@@ -1,6 +1,6 @@
 package im.nue.flime;
 
-import android.app.Activity;
+import android.app.NativeActivity;
 
-public class MainActivity extends Activity {
+public class MainActivity extends NativeActivity {
 }
