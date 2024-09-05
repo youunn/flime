@@ -63,6 +63,7 @@
             rust
             android
             jdk17
+            gnumake
 
             pkg-config
             openssl
