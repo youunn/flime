@@ -1,6 +1,8 @@
 MAKEFLAGS += -rR
 
-ANDROID_TARGET := arm64-v8a
+# ANDROID_TARGET := arm64-v8a
+ANDROID_TARGET := x86_64
+AVD := pt34
 
 BUILD_TOOLS := $(ANDROID_HOME)/build-tools/34.0.0
 PLATFORM := $(ANDROID_HOME)/platforms/android-34
@@ -107,3 +109,8 @@ log:
 .PHONY: preview
 preview:
 	cargo run
+
+.PHONY: emulator
+emulator:
+	ANDROID_AVD_HOME="$$HOME/.config/.android/avd" \
+	emulator -avd $(AVD)
