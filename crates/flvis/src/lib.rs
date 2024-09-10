@@ -134,7 +134,7 @@ impl ApplicationHandler for RenderApp<'_> {
             render_pipeline,
         });
         self.state = RenderState::Active(ActiveRenderState { surface, window });
-        event_loop.set_control_flow(ControlFlow::Poll);
+        event_loop.set_control_flow(ControlFlow::Wait);
     }
 
     fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
