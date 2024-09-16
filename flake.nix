@@ -59,16 +59,33 @@
       in
       {
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            rust
-            android
-            jdk17
-            gnumake
-            cargo-ndk
+          buildInputs =
+            with pkgs;
+            [
+              rust
+              android
+              jdk17
+              gnumake
+              cargo-ndk
 
-            pkg-config
-            openssl
-          ];
+              pkg-config
+              openssl
+            ]
+            ++ pkgs.lib.optionals pkgs.stdenv.isDarwin (
+              with pkgs.darwin.apple_sdk.frameworks;
+              [
+                AppKit
+                Carbon
+                CoreFoundation
+                CoreGraphics
+                CoreServices
+                CoreVideo
+                Foundation
+                Metal
+                QuartzCore
+                iconv
+              ]
+            );
           ANDROID_HOME = "${android}/share/android-sdk";
           JAVA_HOME = pkgs.jdk17;
           LD_LIBRARY_PATH =
