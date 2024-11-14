@@ -7,6 +7,11 @@ use winit::{
     window::{Window, WindowAttributes},
 };
 
+mod app;
+mod context;
+mod manager;
+mod utils;
+
 #[derive(Default)]
 struct RenderApp<'s> {
     context: RenderContext,
