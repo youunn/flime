@@ -110,19 +110,19 @@ impl ApplicationHandler for RenderApp<'_> {
             layout: Some(&pipeline_layout),
             vertex: wgpu::VertexState {
                 module: &shader,
-                entry_point: "vs_main",
+                entry_point: Some("vs_main"),
                 buffers: &[],
                 compilation_options: Default::default(),
             },
             fragment: Some(wgpu::FragmentState {
                 module: &shader,
-                entry_point: "fs_main",
+                entry_point: Some("fs_main"),
                 compilation_options: Default::default(),
                 targets: &[Some(swapchain_format.into())],
             }),
-            primitive: wgpu::PrimitiveState::default(),
+            primitive: Default::default(),
             depth_stencil: None,
-            multisample: wgpu::MultisampleState::default(),
+            multisample: Default::default(),
             multiview: None,
             cache: None,
         });
@@ -180,15 +180,12 @@ impl ApplicationHandler for RenderApp<'_> {
                     .surface
                     .get_current_texture()
                     .expect("Failed to acquire next swap chain texture");
-                let view = frame
-                    .texture
-                    .create_view(&wgpu::TextureViewDescriptor::default());
+                let view = frame.texture.create_view(&Default::default());
                 let mut encoder = device_handler
                     .device
-                    .create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+                    .create_command_encoder(&Default::default());
 
                 let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
                     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                         view: &view,
                         resolve_target: None,
@@ -197,9 +194,7 @@ impl ApplicationHandler for RenderApp<'_> {
                             store: wgpu::StoreOp::Store,
                         },
                     })],
-                    depth_stencil_attachment: None,
-                    timestamp_writes: None,
-                    occlusion_query_set: None,
+                    ..Default::default()
                 });
                 rpass.set_pipeline(&device_handler.render_pipeline);
                 rpass.draw(0..3, 0..1);

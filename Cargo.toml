@@ -16,6 +16,6 @@ android_logger = "0.14.1"
 env_logger = "0.11.5"
 flvis = { path = "crates/flvis" }
 log = "0.4.22"
-pollster = "0.3.0"
-wgpu = "22.1.0"
+pollster = "0.4.0"
+wgpu = "23.0.0"
 winit = "0.30.5"

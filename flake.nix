@@ -30,7 +30,7 @@
             allowUnfree = true;
           };
         };
-        rust =
+        fenix =
           with inputs.fenix.packages.${system};
           combine [
             complete.rustc
@@ -43,17 +43,17 @@
             targets.aarch64-linux-android.latest.rust-std
             targets.x86_64-linux-android.latest.rust-std
           ];
-        buildToolsVersion = "34.0.0";
+        crane = (inputs.crane.mkLib pkgs).overrideToolchain fenix;
         android = inputs.android.sdk.${system} (
           pkgs: with pkgs; [
             cmdline-tools-latest
             platform-tools
-            build-tools-34-0-0
-            platforms-android-34
-            ndk-27-0-11902837
+            build-tools-35-0-0
+            platforms-android-35
+            ndk-28-0-12433566
             emulator
-            system-images-android-34-google-apis-arm64-v8a
-            system-images-android-34-google-apis-x86-64
+            system-images-android-35-google-apis-arm64-v8a
+            system-images-android-35-google-apis-x86-64
           ]
         );
       in
@@ -62,12 +62,12 @@
           buildInputs =
             with pkgs;
             [
-              rust
+              fenix
               android
-              jdk17
+              jdk
               gnumake
               cargo-ndk
-
+              taplo
               pkg-config
               openssl
             ]
@@ -87,7 +87,7 @@
               ]
             );
           ANDROID_HOME = "${android}/share/android-sdk";
-          JAVA_HOME = pkgs.jdk17;
+          JAVA_HOME = pkgs.jdk;
           LD_LIBRARY_PATH =
             with pkgs;
             lib.makeLibraryPath [
@@ -96,6 +96,26 @@
               vulkan-loader
             ];
         };
+        packages.default =
+          let
+            name = "flpov";
+            crate = crane.crateNameFromCargoToml { cargoToml = ./crates/flpov/Cargo.toml; };
+            # src = crane.cleanCargoSource ./.;
+            src = ./.;
+            cargoArtifacts = crane.buildDepsOnly {
+              pname = name;
+              version = crate.version;
+              inherit src;
+              strictDeps = true;
+            };
+          in
+          crane.buildPackage {
+            pname = name;
+            inherit (crate) version;
+            inherit src;
+            cargoExtraArgs = "-p ${name}";
+            inherit cargoArtifacts;
+          };
       }
     );
 }

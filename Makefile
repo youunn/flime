@@ -108,7 +108,7 @@ log:
 
 .PHONY: preview
 preview:
-	DRI_PRIME=1 cargo run
+	cargo run
 
 .PHONY: emulator
 emulator:
