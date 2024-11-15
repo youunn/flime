@@ -1,45 +1,49 @@
 use wgpu::{
-    Adapter, Device, Instance, PresentMode, Queue, Surface, SurfaceConfiguration, TextureFormat,
+    util::initialize_adapter_from_env_or_default, Adapter, CompositeAlphaMode, Device, Instance, Limits, PresentMode, Queue, Surface, SurfaceConfiguration, SurfaceTarget, TextureFormat, TextureUsages
 };
+
+type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Default)]
 pub struct GraphicsContext {
     instance: Instance,
-    device: Vec<GraphicsDevice>,
+    pub devices: Vec<GraphicsDevice>,
 }
 
 pub struct GraphicsDevice {
     adapter: Adapter,
-    device: Device,
+    pub device: Device,
     queue: Queue,
 }
 
 pub struct GraphicsSurface<'s> {
     pub surface: Surface<'s>,
     pub config: SurfaceConfiguration,
-    pub dev_id: usize,
+    pub device: usize,
     pub format: TextureFormat,
 }
 
 impl GraphicsContext {
     pub async fn create_surface<'w>(
         &mut self,
-        surface: Surface<'w>,
+        window: impl Into<SurfaceTarget<'w>>,
         width: u32,
         height: u32,
         present_mode: PresentMode,
-    ) -> Result<GraphicsSurface<'w>> {
+    ) -> AnyResult<GraphicsSurface<'w>> {
+        let surface = self.instance.create_surface(window.into())?;
+        
         let dev_id = self
             .device(Some(&surface))
             .await
-            .ok_or(Error::NoCompatibleDevice)?;
+            .ok_or("no compatible device")?;
         let device_handle = &self.devices[dev_id];
         let capabilities = surface.get_capabilities(&device_handle.adapter);
         let format = capabilities
             .formats
             .into_iter()
             .find(|it| matches!(it, TextureFormat::Rgba8Unorm | TextureFormat::Bgra8Unorm))
-            .ok_or(Error::UnsupportedSurfaceFormat)?;
+            .ok_or("unsupported surface format")?;
 
         let config = SurfaceConfiguration {
             usage: TextureUsages::RENDER_ATTACHMENT,
@@ -54,7 +58,7 @@ impl GraphicsContext {
         let surface = GraphicsSurface {
             surface,
             config,
-            dev_id,
+            device: dev_id,
             format,
         };
         self.configure_surface(&surface);
@@ -73,7 +77,7 @@ impl GraphicsContext {
     }
 
     fn configure_surface(&self, surface: &GraphicsSurface) {
-        let device = &self.devices[surface.dev_id].device;
+        let device = &self.devices[surface.device].device;
         surface.surface.configure(device, &surface.config);
     }
 
@@ -110,7 +114,7 @@ impl GraphicsContext {
             )
             .await
             .ok()?;
-        let device_handle = DeviceHandle {
+        let device_handle = GraphicsDevice {
             adapter,
             device,
             queue,

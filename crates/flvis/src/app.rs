@@ -1,20 +1,22 @@
-use std::{borrow::Cow, sync::Arc};
+use std::sync::Arc;
 use wgpu::PresentMode;
 use winit::{
     application::ApplicationHandler,
-    error::EventLoopError,
     event::WindowEvent,
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::ControlFlow,
     window::{Window, WindowAttributes},
 };
 
-use crate::{gpu::{GraphicsContext, GraphicsManager, GraphicsSurface}, render::Renderer};
+use crate::{
+    gpu::{GraphicsContext, GraphicsSurface},
+    render::Renderer,
+};
 
 #[derive(Default)]
 pub struct App<'s> {
     context: GraphicsContext,
     renderers: Vec<Option<Renderer>>,
-    window: AppWindow,
+    window: AppWindow<'s>,
     window_attributes: WindowAttributes,
 }
 
@@ -34,7 +36,7 @@ impl Default for AppWindow<'_> {
     }
 }
 
-impl App {
+impl App<'_> {
     pub fn new(window_attributes: WindowAttributes) -> Self {
         Self {
             window_attributes,
@@ -43,7 +45,7 @@ impl App {
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler for App<'_> {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         let AppWindow::Suspended(window) = &mut self.window else {
             return;
@@ -68,10 +70,10 @@ impl ApplicationHandler for App {
 
         self.renderers
             .resize_with(self.context.devices.len(), || None);
-        self.renderers[surface.dev_id]
-            .get_or_insert_with(|| create_vello_renderer(&self.context, &surface));
+        self.renderers[surface.device]
+            .get_or_insert_with(|| Renderer::new(Default::default(), Default::default()));
 
-        self.state = AppWindow::Active(ActiveWindow {
+        self.window = AppWindow::Active(ActiveWindow {
             inner: window,
             surface,
         });
@@ -80,8 +82,8 @@ impl ApplicationHandler for App {
     }
 
     fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
-        if let AppWindow::Active(window) = &self.state {
-            self.state = AppWindow::Suspended(Some(window.inner.clone()));
+        if let AppWindow::Active(window) = &self.window {
+            self.window = AppWindow::Suspended(Some(window.inner.clone()));
         }
         event_loop.set_control_flow(ControlFlow::Wait);
     }
@@ -92,6 +94,39 @@ impl ApplicationHandler for App {
         window_id: winit::window::WindowId,
         event: WindowEvent,
     ) {
-        todo!()
+        let window = match &mut self.window {
+            AppWindow::Active(window) if window.inner.id() == window_id => window,
+            _ => return,
+        };
+        match event {
+            WindowEvent::CloseRequested => {
+                event_loop.exit();
+            }
+            WindowEvent::Resized(size) => {
+                self.context
+                    .resize_surface(&mut window.surface, size.width, size.height);
+                window.inner.request_redraw();
+            }
+            WindowEvent::RedrawRequested => {
+                let frame = window
+                    .surface
+                    .surface
+                    .get_current_texture()
+                    .expect("Failed to acquire next swap chain texture");
+                let device = &self.context.devices[window.surface.device];
+                
+                let x = 
+                self.renderers.get(window.surface.device)
+                    .expect("failed to get device")
+                    .as_mut()
+                    .render()
+                ;
+                
+
+                frame.present();
+                device.device.poll(wgpu::Maintain::Poll);
+            }
+            _ => {}
+        }
     }
 }

@@ -1,8 +1,8 @@
 use winit::{dpi::LogicalSize, event_loop::EventLoop, window::Window};
 
-type AnyResult = std::result::Result<(), Box<dyn std::error::Error>>;
+type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
 
-fn main() -> AnyResult {
+fn main() -> AnyResult<()> {
     let event_loop = EventLoop::new().unwrap();
     let window_attributes = Window::default_attributes()
         .with_title("flpov")
