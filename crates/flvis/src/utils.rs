@@ -9,9 +9,9 @@ impl std::task::Wake for NullWake {
 pub fn block_on_wgpu<F: Future>(device: &Device, mut future: F) -> F::Output {
     let waker = std::task::Waker::from(std::sync::Arc::new(NullWake));
     let mut context = std::task::Context::from_waker(&waker);
-    let mut fut = std::pin::pin!(future);
+    let mut future = std::pin::pin!(future);
     loop {
-        match fut.as_mut().poll(&mut context) {
+        match future.as_mut().poll(&mut context) {
             std::task::Poll::Pending => {
                 device.poll(wgpu::Maintain::Wait);
             }

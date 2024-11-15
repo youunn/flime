@@ -26,14 +26,15 @@ impl Renderer {
         /* params */
     ) -> AnyResult<()> {
         // generate commands
+        let mut commands = Commands::default();
+        commands.push(Command::Draw());
+        self.run(device, queue, &commands);
         Ok(())
     }
 
-    fn run(&mut self) {
-        // let mut encoder = device_handler
-        //     .device
-        //     .create_command_encoder(&Default::default());
-        
+    fn run(&mut self, device: &Device, queue: &Queue, commands: &Commands) {
+        let mut encoder = device.create_command_encoder(&Default::default());
+
         // TODO: match command {
         // let view = frame.texture.create_view(&Default::default());
         // let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -51,7 +52,30 @@ impl Renderer {
         // rpass.draw(0..3, 0..1);
         // drop(rpass);
         // }
-        
-        // device_handler.queue.submit(Some(encoder.finish()));
+
+        queue.submit(Some(encoder.finish()));
+    }
+}
+
+#[derive(Default)]
+pub struct Commands(Vec<Command>);
+
+pub enum Command {
+    Draw(),
+}
+
+impl Commands {
+    pub fn push(&mut self, command: Command) {
+        self.0.push(command);
+    }
+
+    pub fn draw(&mut self) {
+        self.push(Command::Draw());
+    }
+}
+
+impl From<Commands> for Vec<Command> {
+    fn from(value: Commands) -> Self {
+        value.0
     }
 }
