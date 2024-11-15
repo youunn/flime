@@ -1,16 +1,9 @@
-use std::{borrow::Cow, sync::Arc};
-use winit::{
-    application::ApplicationHandler,
-    error::EventLoopError,
-    event::WindowEvent,
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowAttributes},
-};
+use app::App;
 
 mod app;
-mod context;
-mod manager;
+mod gpu;
 mod utils;
+mod render;
 
 #[derive(Default)]
 struct RenderApp<'s> {
@@ -218,7 +211,7 @@ pub fn run(
     event_loop: EventLoop<()>,
     window_attributes: WindowAttributes,
 ) -> Result<(), EventLoopError> {
-    let mut app = RenderApp::new(window_attributes);
+    let mut app = App::new(window_attributes);
     event_loop.run_app(&mut app)?;
     Ok(())
 }
