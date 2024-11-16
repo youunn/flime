@@ -1,57 +1,66 @@
 use std::collections::HashMap;
-use wgpu::{Buffer, Device, Queue, SurfaceTexture};
+use wgpu::{
+    BindGroupLayout, Buffer, ComputePipeline, Device, Queue, RenderPipeline, SurfaceTexture,
+    TextureView,
+};
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
 
+#[derive(Default)]
 pub struct Renderer {
     pipelines: Vec<Pipeline>,
     resource: HashMap<usize, Vec<Buffer>>,
 }
 
-pub struct Pipeline {}
+struct Pipeline {
+    inner: GeneralPipeline,
+    layout: BindGroupLayout,
+}
+
+enum GeneralPipeline {
+    Compute(ComputePipeline),
+    Render(RenderPipeline),
+}
 
 impl Renderer {
-    pub fn new(pipelines: Vec<Pipeline>, resource: HashMap<usize, Vec<Buffer>>) -> Self {
-        Self {
-            pipelines,
-            resource,
-        }
-    }
-
     pub fn render(
         &mut self,
         device: &Device,
         queue: &Queue,
-        surface: &SurfaceTexture,
+        frame: &SurfaceTexture,
         /* params */
     ) -> AnyResult<()> {
         // generate commands
         let mut commands = Commands::default();
         commands.push(Command::Draw());
-        self.run(device, queue, &commands);
+        let view = frame.texture.create_view(&Default::default());
+        self.run(device, queue, &commands, &view);
         Ok(())
     }
 
-    fn run(&mut self, device: &Device, queue: &Queue, commands: &Commands) {
+    fn run(&mut self, device: &Device, queue: &Queue, view: &TextureView, commands: &Commands) {
         let mut encoder = device.create_command_encoder(&Default::default());
 
-        // TODO: match command {
-        // let view = frame.texture.create_view(&Default::default());
-        // let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-        //     color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-        //         view: &view,
-        //         resolve_target: None,
-        //         ops: wgpu::Operations {
-        //             load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-        //             store: wgpu::StoreOp::Store,
-        //         },
-        //     })],
-        //     ..Default::default()
-        // });
-        // rpass.set_pipeline(&device_handler.render_pipeline);
-        // rpass.draw(0..3, 0..1);
-        // drop(rpass);
-        // }
+        for command in commands.0 {
+            match command {
+                Command::Draw() => {
+                    let pipeline = &self.pipelines[id];
+                    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                        color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                            view,
+                            resolve_target: None,
+                            ops: wgpu::Operations {
+                                load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                                store: wgpu::StoreOp::Store,
+                            },
+                        })],
+                        ..Default::default()
+                    });
+                    rpass.set_pipeline(&device_handler.render_pipeline);
+                    rpass.draw(0..3, 0..1);
+                }
+            }
+        }
 
         queue.submit(Some(encoder.finish()));
     }

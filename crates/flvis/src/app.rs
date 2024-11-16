@@ -114,14 +114,14 @@ impl ApplicationHandler for App<'_> {
                     .get_current_texture()
                     .expect("Failed to acquire next swap chain texture");
                 let device = &self.context.devices[window.surface.device];
-                
-                let x = 
-                self.renderers.get(window.surface.device)
+
+                let x = self
+                    .renderers
+                    .get(window.surface.device)
                     .expect("failed to get device")
                     .as_mut()
-                    .render()
-                ;
-                
+                    .expect("failed to get device")
+                    .render();
 
                 frame.present();
                 device.device.poll(wgpu::Maintain::Poll);
